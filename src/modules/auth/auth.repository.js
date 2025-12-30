@@ -32,8 +32,8 @@ export const AuthRepository = {
         data.akun_id,
         data.nik,
         data.nama,
-        data.jenis_kelamin,
         data.tgl_lahir,
+        data.jenis_kelamin,
         data.alamat,
         data.no_telepon,
       ]
