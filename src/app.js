@@ -28,6 +28,10 @@ fs.mkdirSync(path.join(uploadBase, "referrals"), { recursive: true });
 
 app.use("/uploads", express.static(uploadBase));
 
+app.get("/health", (req, res) => {
+  res.json({ status: "ok" });
+});
+
 app.get("/", (req, res) => {
   res.json({ message: "eLabora API is running" });
 });
