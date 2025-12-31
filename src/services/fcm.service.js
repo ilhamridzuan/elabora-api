@@ -1,5 +1,5 @@
 import admin from "firebase-admin";
-import { db } from "../config/db.js";
+import { db } from "./config/db.js";
 
 function initFirebaseAdmin() {
   if (admin.apps.length) return;
