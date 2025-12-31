@@ -34,7 +34,7 @@ export const QueueService = {
       await AuditRepository.insert(conn, {
         entity: "pendaftaran",
         entity_id: pendaftaranId,
-        aksi: "UPDATE_STATUS",
+        aksi: "UPDATE",
         changed_by_akun_id: actorAkunId,
         detail: { from, to },
       });
@@ -62,7 +62,7 @@ export const QueueService = {
       await AuditRepository.insert(conn, {
         entity: "pendaftaran",
         entity_id: pendaftaranId,
-        aksi: "UPDATE_STATUS",
+        aksi: "UPDATE",
         changed_by_akun_id: actorAkunId,
         detail: { from, to, reason: reason || null },
       });
@@ -93,7 +93,7 @@ export const QueueService = {
         await AuditRepository.insert(conn, {
           entity: "pendaftaran",
           entity_id: currentId,
-          aksi: "UPDATE_STATUS",
+          aksi: "UPDATE",
           changed_by_akun_id: actorAkunId,
           detail: { from: cur.status, to: "SELESAI" },
         });
@@ -110,7 +110,7 @@ export const QueueService = {
       await AuditRepository.insert(conn, {
         entity: "pendaftaran",
         entity_id: nextRow.id,
-        aksi: "UPDATE_STATUS",
+        aksi: "UPDATE",
         changed_by_akun_id: actorAkunId,
         detail: { from: "MENUNGGU", to: "DILAYANI", autoNext: true },
       });
