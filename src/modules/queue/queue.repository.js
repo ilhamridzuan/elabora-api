@@ -58,4 +58,23 @@ export const QueueRepository = {
     );
     return rows[0] || null;
   },
+
+  async getDetailForNotify(conn, id) {
+    const [rows] = await conn.query(
+      `
+    SELECT
+      pd.id AS pendaftaran_id,
+      pd.no_antrian,
+      pd.tanggal_antrian,
+      ps.nama AS pasien_nama,
+      ps.akun_id AS akun_id
+    FROM pendaftaran pd
+    JOIN pasien ps ON ps.id = pd.pasien_id
+    WHERE pd.id=?
+    LIMIT 1
+    `,
+      [id]
+    );
+    return rows[0] || null;
+  },
 };

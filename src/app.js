@@ -11,6 +11,7 @@ import patientsRoutes from "./modules/patients/patients.routes.js";
 import queueRoutes from "./modules/queue/queue.routes.js";
 import examsRoutes from "./modules/exams/exams.routes.js";
 import auditRoutes from "./modules/audit/audit.routes.js";
+import devicesRoutes from "./modules/devices/devices.routes.js";
 
 import { notFound, errorHandler } from "./middleware/error.middleware.js";
 
@@ -42,6 +43,7 @@ app.use("/patients", patientsRoutes);
 app.use("/queue", queueRoutes);
 app.use("/exams", examsRoutes);
 app.use("/audit-logs", auditRoutes);
+app.use("/devices", devicesRoutes);
 
 app.use(notFound);
 app.use(errorHandler);
