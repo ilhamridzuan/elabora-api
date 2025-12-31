@@ -84,10 +84,26 @@ export const ExamsService = {
 
         const conn = await db.getConnection();
         try {
+            // 1) Deteksi file_type sesuai ENUM DB
+            const fileType = (() => {
+                const mt = (file.mimetype || "").toLowerCase();
+                if (mt === "application/pdf") return "PDF";
+                if (mt === "image/png") return "PNG";
+                if (mt === "image/jpeg" || mt === "image/jpg") return "JPG";
+                return null;
+            })();
+
+            if (!fileType) {
+                const err = new Error("File type not allowed");
+                err.statusCode = 422;
+                throw err;
+            }
+
+            // 2) Insert ke DB pakai ENUM
             await ExamsRepository.insertFile(conn, {
                 pemeriksaan_id: pemeriksaanId,
                 file_path: relative,
-                mime_type: file.mimetype,
+                file_type: fileType,
             });
 
             await AuditRepository.insert(conn, {

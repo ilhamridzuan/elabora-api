@@ -81,11 +81,11 @@ export const ExamsRepository = {
     );
   },
 
-  async insertFile(conn, { pemeriksaan_id, file_path, mime_type }) {
+  async insertFile(conn, { pemeriksaan_id, file_path, file_type }) {
     const [result] = await conn.query(
       `INSERT INTO pemeriksaan_file (pemeriksaan_id, file_path, file_type, uploaded_at)
        VALUES (?, ?, ?, NOW())`,
-      [pemeriksaan_id, file_path, mime_type]
+      [pemeriksaan_id, file_path, file_type]
     );
     return result.insertId;
   },
