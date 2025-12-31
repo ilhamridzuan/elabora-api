@@ -19,9 +19,9 @@ export const RegistrationRepository = {
   async insertPendaftaran(conn, payload) {
     const [r] = await conn.query(
       `INSERT INTO pendaftaran
-       (pasien_id, no_antrian, tanggal_antrian, jadwal_pemeriksaan_at, surat_rujukan_path,
+       (pasien_id, no_antrian, no_lab, tanggal_antrian, jadwal_pemeriksaan_at, surat_rujukan_path,
         status, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())`,
+       VALUES (?, ?, NULL, ?, ?, ?, ?, NOW(), NOW())`,
       [
         payload.pasien_id,
         payload.no_antrian,
