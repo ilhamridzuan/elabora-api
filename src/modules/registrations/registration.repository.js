@@ -21,7 +21,7 @@ export const RegistrationRepository = {
       `INSERT INTO pendaftaran
        (pasien_id, no_antrian, no_lab, tanggal_antrian, jadwal_pemeriksaan_at, surat_rujukan_path,
         status, created_at, updated_at)
-       VALUES (?, ?, NULL, ?, ?, ?, ?, NOW(), NOW())`,
+       VALUES (?, ?, 'DEFAULT', ?, ?, ?, ?, NOW(), NOW())`,
       [
         payload.pasien_id,
         payload.no_antrian,
