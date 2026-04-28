@@ -7,9 +7,22 @@ export const AuthService = {
   async registerPasien(payload) {
     const conn = await db.getConnection();
     try {
+      // Check for duplicate username or email before transaction
+      const exists = await AuthRepository.checkUsernameOrEmailExists(
+        conn,
+        payload.username,
+        payload.email
+      );
+      
+      if (exists) {
+        const error = new Error("Username atau email sudah digunakan");
+        error.status = 409;
+        throw error;
+      }
+
       await conn.beginTransaction();
 
-      const password_hash = await bcrypt.hash(payload.password, 10);
+      const password_hash = await bcrypt.hash(payload.password, 12);
 
       const akunId = await AuthRepository.insertAkun(conn, {
         username: payload.username,
@@ -47,9 +60,22 @@ export const AuthService = {
   async registerDokter(payload) {
     const conn = await db.getConnection();
     try {
+      // Check for duplicate username or email before transaction
+      const exists = await AuthRepository.checkUsernameOrEmailExists(
+        conn,
+        payload.username,
+        payload.email
+      );
+      
+      if (exists) {
+        const error = new Error("Username atau email sudah digunakan");
+        error.status = 409;
+        throw error;
+      }
+
       await conn.beginTransaction();
 
-      const password_hash = await bcrypt.hash(payload.password, 10);
+      const password_hash = await bcrypt.hash(payload.password, 12);
 
       const akunId = await AuthRepository.insertAkunDokter(conn, {
         username: payload.username,
@@ -83,9 +109,22 @@ export const AuthService = {
   async registerPetugas(payload) {
     const conn = await db.getConnection();
     try {
+      // Check for duplicate username or email before transaction
+      const exists = await AuthRepository.checkUsernameOrEmailExists(
+        conn,
+        payload.username,
+        payload.email
+      );
+      
+      if (exists) {
+        const error = new Error("Username atau email sudah digunakan");
+        error.status = 409;
+        throw error;
+      }
+
       await conn.beginTransaction();
 
-      const password_hash = await bcrypt.hash(payload.password, 10);
+      const password_hash = await bcrypt.hash(payload.password, 12);
 
       const akunId = await AuthRepository.insertAkunPetugas(conn, {
         username: payload.username,
@@ -121,12 +160,16 @@ export const AuthService = {
     const akun = await AuthRepository.findByUsername(conn, username);
 
     if (!akun) {
-      throw { status: 401, message: "Invalid credentials" };
+      const error = new Error("Username atau password salah");
+      error.status = 401;
+      throw error;
     }
 
     const match = await bcrypt.compare(password, akun.password_hash);
     if (!match) {
-      throw { status: 401, message: "Invalid credentials" };
+      const error = new Error("Username atau password salah");
+      error.status = 401;
+      throw error;
     }
 
     const token = jwt.sign(

@@ -95,4 +95,28 @@ export const AuthRepository = {
     const [rows] = await conn.query(sql, [akunId]);
     return rows[0] || null;
   },
+
+  async checkUsernameExists(conn, username) {
+    const [rows] = await conn.query(
+      "SELECT COUNT(*) as count FROM akun WHERE username = ?",
+      [username]
+    );
+    return rows[0].count > 0;
+  },
+
+  async checkEmailExists(conn, email) {
+    const [rows] = await conn.query(
+      "SELECT COUNT(*) as count FROM akun WHERE email = ?",
+      [email]
+    );
+    return rows[0].count > 0;
+  },
+
+  async checkUsernameOrEmailExists(conn, username, email) {
+    const [rows] = await conn.query(
+      "SELECT COUNT(*) as count FROM akun WHERE username = ? OR email = ?",
+      [username, email]
+    );
+    return rows[0].count > 0;
+  },
 };
