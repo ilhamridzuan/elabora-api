@@ -101,6 +101,40 @@ export const ExamsRepository = {
     return rows;
   },
 
+  async getFileById(conn, fileId) {
+    const [rows] = await conn.query(
+      `SELECT id, pemeriksaan_id, file_path, file_type, uploaded_at
+       FROM pemeriksaan_file
+       WHERE id=?`,
+      [fileId]
+    );
+    return rows[0] || null;
+  },
+
+  async deleteFile(conn, fileId) {
+    const [result] = await conn.query(
+      `DELETE FROM pemeriksaan_file WHERE id=?`,
+      [fileId]
+    );
+    return result.affectedRows;
+  },
+
+  async deleteFilesByExamId(conn, examId) {
+    const [result] = await conn.query(
+      `DELETE FROM pemeriksaan_file WHERE pemeriksaan_id=?`,
+      [examId]
+    );
+    return result.affectedRows;
+  },
+
+  async deleteExam(conn, examId) {
+    const [result] = await conn.query(
+      `DELETE FROM pemeriksaan WHERE id=?`,
+      [examId]
+    );
+    return result.affectedRows;
+  },
+
   async listAll(conn, { q, status_hasil, limit, offset }) {
     const bindings = [];
     const where = [];

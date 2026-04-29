@@ -16,8 +16,8 @@ export const errorHandler = (err, req, res, next) => {
     method: req.method,
   });
 
-  // Use err.status if provided, otherwise default to 500
-  const statusCode = err.status || 500;
+  // Use err.status or err.statusCode if provided, otherwise default to 500
+  const statusCode = err.status || err.statusCode || 500;
 
   // Determine if we're in production (hide stack traces by default)
   const isProduction = process.env.NODE_ENV !== 'development';
