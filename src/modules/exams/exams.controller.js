@@ -62,6 +62,27 @@ export async function uploadExamFile(req, res, next) {
   }
 }
 
+export async function updateExamFile(req, res, next) {
+  try {
+    const id = Number(req.params.id);
+    if (!req.file) return res.status(422).json({ message: "File required" });
+    const files = await ExamsService.updateExamFile({ pemeriksaanId: id, file: req.file, akunId: req.user.akun_id });
+    return res.status(200).json({ files });
+  } catch (e) {
+    next(e);
+  }
+}
+
+export async function deleteExam(req, res, next) {
+  try {
+    const id = Number(req.params.id);
+    const result = await ExamsService.deleteExam({ pemeriksaanId: id, akunId: req.user.akun_id });
+    return res.status(200).json(result);
+  } catch (e) {
+    next(e);
+  }
+}
+
 
 export async function  listAll(req, res, next) {
   try {
