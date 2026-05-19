@@ -379,10 +379,11 @@ async function migrateUp(connection, filter) {
     console.log('\n========================================');
     console.log('Applying Migration 004: Migrate Legacy Files to Azure Blob Storage');
     console.log('========================================\n');
-    console.log('Running: node migrations/004_migrate_files_to_blob.js');
     const { execSync } = await import('child_process');
+    const script004 = join(__dirname, '004_migrate_files_to_blob.js');
+    console.log(`Running: node ${script004}`);
     try {
-      execSync('node migrations/004_migrate_files_to_blob.js', { stdio: 'inherit' });
+      execSync(`node "${script004}"`, { stdio: 'inherit' });
     } catch (error) {
       console.error('✗ Error in migration 004:', error.message);
       throw error;
