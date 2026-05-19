@@ -71,7 +71,7 @@ jobs:
         env:
           DB_HOST: ${{ secrets.PROD_DB_HOST }}
           DB_USER: ${{ secrets.PROD_DB_USER }}
-          DB_PASS: ${{ secrets.PROD_DB_PASSWORD }}
+          DB_PASSWORD: ${{ secrets.PROD_DB_PASSWORD }}
           DB_NAME: ${{ secrets.PROD_DB_NAME }}
           AZURE_STORAGE_ACCOUNT_NAME: ${{ secrets.AZURE_STORAGE_ACCOUNT_NAME }}
           AZURE_STORAGE_CONNECTION_STRING: ${{ secrets.AZURE_STORAGE_CONNECTION_STRING }}
