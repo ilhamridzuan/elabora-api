@@ -16,6 +16,7 @@ import devicesRoutes from "./modules/devices/devices.routes.js";
 import { notFound, errorHandler } from "./middleware/error.middleware.js";
 
 const app = express();
+app.set('trust proxy', 1);
 
 // Parse CORS allowed origins from environment variable
 const allowedOrigins = process.env.CORS_ALLOWED_ORIGINS
