@@ -19,19 +19,38 @@ export const RegistrationRepository = {
   async insertPendaftaran(conn, payload) {
     const [r] = await conn.query(
       `INSERT INTO pendaftaran
-       (pasien_id, no_antrian, no_lab, tanggal_antrian, jadwal_pemeriksaan_at, surat_rujukan_path,
-        status, created_at, updated_at)
-       VALUES (?, ?, 'DEFAULT', ?, ?, ?, ?, NOW(), NOW())`,
+       (pasien_id, no_antrian, no_lab, tanggal_antrian, jadwal_pemeriksaan_at,
+        status,
+        surat_rujukan_blob_name, surat_rujukan_container, surat_rujukan_content_type,
+        surat_rujukan_size_bytes, surat_rujukan_sha256,
+        created_at, updated_at)
+       VALUES (?, ?, 'DEFAULT', ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
       [
         payload.pasien_id,
         payload.no_antrian,
         payload.tanggal_antrian,
         payload.jadwal_pemeriksaan_at,
-        payload.surat_rujukan_path,
-        payload.status, // "MENUNGGU"
+        payload.status,
+        payload.surat_rujukan_blob_name ?? null,
+        payload.surat_rujukan_container ?? null,
+        payload.surat_rujukan_content_type ?? null,
+        payload.surat_rujukan_size_bytes ?? null,
+        payload.surat_rujukan_sha256 ?? null,
       ]
     );
     return r.insertId;
+  },
+
+  async findById(conn, id) {
+    const [rows] = await conn.query(
+      `SELECT id, pasien_id, no_lab, no_antrian, tanggal_antrian, jadwal_pemeriksaan_at,
+              status, surat_rujukan_blob_name, surat_rujukan_container,
+              surat_rujukan_content_type, surat_rujukan_size_bytes, surat_rujukan_sha256
+       FROM pendaftaran
+       WHERE id = ?`,
+      [id]
+    );
+    return rows[0] || null;
   },
 
   async updateNoLab(conn, id, no_lab) {

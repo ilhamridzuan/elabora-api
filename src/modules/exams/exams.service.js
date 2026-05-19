@@ -1,55 +1,26 @@
 import path from "path";
-import fs from "fs";
+import crypto from "crypto";
 import { db } from "../../config/db.js";
 import { ExamsRepository } from "./exams.repository.js";
 import { AuditRepository } from "../audit/audit.repository.js";
+import { blobService } from "../../services/blob.service.js";
 
-// File validation utilities
-function validateFileSize(file, maxSizeMB) {
-    const maxSizeBytes = maxSizeMB * 1024 * 1024;
-    if (file.size > maxSizeBytes) {
-        const err = new Error(`File size exceeds ${maxSizeMB}MB limit`);
-        err.statusCode = 422;
-        throw err;
+const ALLOWED_MIME = new Set(["application/pdf", "image/jpeg", "image/png"]);
+const ALLOWED_EXT = new Set([".pdf", ".jpg", ".jpeg", ".png"]);
+const MIME_TO_TYPE = { "application/pdf": "PDF", "image/jpeg": "JPG", "image/png": "PNG" };
+
+function validate(file) {
+    if (!file) {
+        const e = new Error("File wajib diupload"); e.statusCode = 400; throw e;
     }
-}
-
-function validateFileExtension(file, allowedExtensions) {
     const ext = path.extname(file.originalname).toLowerCase();
-    if (!allowedExtensions.includes(ext)) {
-        const err = new Error(`Invalid file extension. Allowed: ${allowedExtensions.join(', ')}`);
-        err.statusCode = 422;
-        throw err;
+    if (!ALLOWED_MIME.has(file.mimetype) || !ALLOWED_EXT.has(ext)) {
+        const e = new Error("Format file tidak diizinkan"); e.statusCode = 422; throw e;
     }
-}
-
-function validateFileMimeType(file, allowedMimeTypes) {
-    if (!allowedMimeTypes.includes(file.mimetype)) {
-        const err = new Error(`Invalid file MIME type. Allowed: ${allowedMimeTypes.join(', ')}`);
-        err.statusCode = 422;
-        throw err;
+    if (file.size > 5 * 1024 * 1024) {
+        const e = new Error("File size exceeds 5MB limit"); e.statusCode = 422; throw e;
     }
-}
-
-// File cleanup utility
-async function deleteFileFromDisk(filePath) {
-    try {
-        await fs.promises.unlink(filePath);
-        console.log(`Successfully deleted file: ${filePath}`);
-    } catch (error) {
-        if (error.code === 'ENOENT') {
-            // File not found - log but don't throw
-            console.warn(`File not found, skipping deletion: ${filePath}`);
-        } else if (error.code === 'EACCES' || error.code === 'EPERM') {
-            // Permission error - log and throw
-            console.error(`Permission denied when deleting file: ${filePath}`);
-            throw error;
-        } else {
-            // Other errors - log and throw
-            console.error(`Error deleting file ${filePath}:`, error);
-            throw error;
-        }
-    }
+    return ext;
 }
 
 export const ExamsService = {
@@ -121,63 +92,52 @@ export const ExamsService = {
     },
 
     async attachFile({ pemeriksaanId, file, akunId }) {
-        // Validate file at the beginning before any operations
-        validateFileSize(file, 5);
-        validateFileExtension(file, ['.pdf', '.jpg', '.jpeg', '.png']);
-        validateFileMimeType(file, ['application/pdf', 'image/jpeg', 'image/png']);
+        const ext = validate(file);
+        const blobName = `${pemeriksaanId}/${crypto.randomUUID()}${ext}`;
+        const sha256 = blobService.constructor.sha256(file.buffer);
 
-        // store relative path for DB
-        const relative = path.posix.join("/uploads", path.basename(file.path));
+        try {
+            await blobService.upload({
+                container: blobService.containerExams,
+                blobName,
+                buffer: file.buffer,
+                contentType: file.mimetype,
+                originalFilename: file.originalname,
+            });
+        } catch (e) {
+            const err = new Error("Layanan penyimpanan tidak tersedia, silakan coba lagi");
+            err.statusCode = 502;
+            err.cause = e;
+            throw err;
+        }
 
         const conn = await db.getConnection();
         try {
-            // Begin transaction
             await conn.beginTransaction();
-
-            try {
-                // 1) Deteksi file_type sesuai ENUM DB
-                const fileType = (() => {
-                    const mt = (file.mimetype || "").toLowerCase();
-                    if (mt === "application/pdf") return "PDF";
-                    if (mt === "image/png") return "PNG";
-                    if (mt === "image/jpeg" || mt === "image/jpg") return "JPG";
-                    return null;
-                })();
-
-                if (!fileType) {
-                    const err = new Error("File type not allowed");
-                    err.statusCode = 422;
-                    throw err;
-                }
-
-                // 2) Insert ke DB pakai ENUM
-                await ExamsRepository.insertFile(conn, {
-                    pemeriksaan_id: pemeriksaanId,
-                    file_path: relative,
-                    file_type: fileType,
-                });
-
-                await AuditRepository.insert(conn, {
-                    entity: "pemeriksaan",
-                    entity_id: pemeriksaanId,
-                    aksi: "UPDATE",
-                    changed_by_akun_id: akunId,
-                    detail: "File attached to pemeriksaan",
-                });
-
-                // Commit transaction on success
-                await conn.commit();
-
-                return await ExamsRepository.listFiles(conn, pemeriksaanId);
-            } catch (error) {
-                // Rollback transaction on any error
-                await conn.rollback();
-                
-                // Delete the uploaded file from disk
-                await deleteFileFromDisk(file.path);
-                
-                throw error;
-            }
+            await ExamsRepository.insertFile(conn, {
+                pemeriksaan_id: pemeriksaanId,
+                blob_name: blobName,
+                container: blobService.containerExams,
+                content_type: file.mimetype,
+                size_bytes: file.size,
+                sha256,
+                file_type: MIME_TO_TYPE[file.mimetype],
+            });
+            await AuditRepository.insert(conn, {
+                entity: "pemeriksaan",
+                entity_id: pemeriksaanId,
+                aksi: "UPDATE",
+                changed_by_akun_id: akunId,
+                detail: { blob_name: blobName, container: blobService.containerExams },
+            });
+            await conn.commit();
+            return await ExamsRepository.listFiles(conn, pemeriksaanId);
+        } catch (e) {
+            await conn.rollback();
+            await blobService
+                .deleteBlob({ container: blobService.containerExams, blobName })
+                .catch((de) => console.error("compensating delete failed", de));
+            throw e;
         } finally {
             conn.release();
         }
@@ -214,74 +174,174 @@ export const ExamsService = {
         }
     },
 
-    async updateExamFile({ pemeriksaanId, file, akunId }) {
-        // Validate new file at the beginning before any operations
-        validateFileSize(file, 5);
-        validateFileExtension(file, ['.pdf', '.jpg', '.jpeg', '.png']);
-        validateFileMimeType(file, ['application/pdf', 'image/jpeg', 'image/png']);
+    async replaceFile(examId, fileId, file, user) {
+        const akunId = user.akun_id;
+        const pemeriksaanId = Number(examId);
+        const ext = validate(file);
+        const newBlobName = `${pemeriksaanId}/${crypto.randomUUID()}${ext}`;
+        const sha256 = blobService.constructor.sha256(file.buffer);
 
-        // Store relative path for DB
-        const relative = path.posix.join("/uploads", path.basename(file.path));
-
-        const conn = await db.getConnection();
+        // Phase 1: upload new blob first (no DB touched yet)
         try {
-            // Begin transaction
+            await blobService.upload({
+                container: blobService.containerExams,
+                blobName: newBlobName,
+                buffer: file.buffer,
+                contentType: file.mimetype,
+                originalFilename: file.originalname,
+            });
+        } catch (e) {
+            const err = new Error("Layanan penyimpanan tidak tersedia, silakan coba lagi");
+            err.statusCode = 502;
+            err.cause = e;
+            throw err;
+        }
+
+        // Phase 2: DB transaction
+        const conn = await db.getConnection();
+        let oldBlob = null;
+        try {
             await conn.beginTransaction();
 
-            try {
-                // 1) Retrieve old file paths from database
-                const oldFiles = await ExamsRepository.listFiles(conn, pemeriksaanId);
-                
-                // 2) Detect file_type according to DB ENUM
-                const fileType = (() => {
-                    const mt = (file.mimetype || "").toLowerCase();
-                    if (mt === "application/pdf") return "PDF";
-                    if (mt === "image/png") return "PNG";
-                    if (mt === "image/jpeg" || mt === "image/jpg") return "JPG";
-                    return null;
-                })();
-
-                if (!fileType) {
-                    const err = new Error("File type not allowed");
-                    err.statusCode = 422;
-                    throw err;
-                }
-
-                // 3) Insert new file record in database
-                await ExamsRepository.insertFile(conn, {
-                    pemeriksaan_id: pemeriksaanId,
-                    file_path: relative,
-                    file_type: fileType,
-                });
-
-                // 4) Insert audit log
-                await AuditRepository.insert(conn, {
-                    entity: "pemeriksaan",
-                    entity_id: pemeriksaanId,
-                    aksi: "UPDATE",
-                    changed_by_akun_id: akunId,
-                    detail: "File replaced for pemeriksaan",
-                });
-
-                // 5) Commit transaction
-                await conn.commit();
-
-                // 6) Delete old files from disk (after successful commit)
-                for (const oldFile of oldFiles) {
-                    const oldFilePath = path.join(process.cwd(), oldFile.file_path);
-                    await deleteFileFromDisk(oldFilePath);
-                }
-
-                return await ExamsRepository.listFiles(conn, pemeriksaanId);
-            } catch (error) {
-                // Rollback transaction on any error
+            // Load old row; verify belongs to this exam
+            const oldRow = await ExamsRepository.getFileById(conn, fileId);
+            if (!oldRow || oldRow.pemeriksaan_id !== pemeriksaanId) {
                 await conn.rollback();
-                
-                // Delete the new uploaded file from disk
-                await deleteFileFromDisk(file.path);
-                
-                throw error;
+                // Compensate: delete new blob since DB won't reference it
+                await blobService
+                    .deleteBlob({ container: blobService.containerExams, blobName: newBlobName })
+                    .catch((de) => console.warn("compensating delete failed (404 check)", de));
+                const e = new Error("File tidak ditemukan");
+                e.statusCode = 404;
+                throw e;
             }
+
+            oldBlob = { container: oldRow.container || blobService.containerExams, blobName: oldRow.blob_name };
+
+            // Update row to point at new blob
+            await ExamsRepository.updateFile(conn, fileId, {
+                blob_name: newBlobName,
+                container: blobService.containerExams,
+                content_type: file.mimetype,
+                size_bytes: file.size,
+                sha256,
+                file_type: MIME_TO_TYPE[file.mimetype],
+            });
+
+            // Audit UPDATE with old_blob + new_blob
+            await AuditRepository.insert(conn, {
+                entity: "pemeriksaan",
+                entity_id: pemeriksaanId,
+                aksi: "UPDATE",
+                changed_by_akun_id: akunId,
+                detail: { old_blob: oldBlob.blobName, new_blob: newBlobName },
+            });
+
+            await conn.commit();
+        } catch (e) {
+            // On any error after beginTransaction (but before the 404 early-return path above)
+            // rollback and compensate new blob
+            if (e.statusCode !== 404) {
+                await conn.rollback().catch(() => {});
+                await blobService
+                    .deleteBlob({ container: blobService.containerExams, blobName: newBlobName })
+                    .catch((de) => console.warn("compensating delete on DB error failed", de));
+            }
+            throw e;
+        } finally {
+            conn.release();
+        }
+
+        // Post-commit: delete old blob best-effort
+        if (oldBlob && oldBlob.blobName) {
+            await blobService
+                .deleteBlob(oldBlob)
+                .catch((e) => console.warn("old blob delete failed (best-effort)", { ...oldBlob, err: e.message }));
+        }
+
+        // Return updated file metadata
+        const conn2 = await db.getConnection();
+        try {
+            return await ExamsRepository.getFileById(conn2, fileId);
+        } finally {
+            conn2.release();
+        }
+    },
+
+    async downloadFile({ pemeriksaanId, fileId, user }) {
+        const conn = await db.getConnection();
+        try {
+            // Load exam — 404 if not found
+            const exam = await ExamsRepository.getDetail(conn, pemeriksaanId);
+            if (!exam) {
+                const e = new Error("Pemeriksaan tidak ditemukan");
+                e.statusCode = 404;
+                throw e;
+            }
+
+            // Load file row — 404 if not found or belongs to different exam
+            const fileRow = await ExamsRepository.getFileById(conn, fileId);
+            if (!fileRow || fileRow.pemeriksaan_id !== pemeriksaanId) {
+                const e = new Error("File tidak ditemukan");
+                e.statusCode = 404;
+                throw e;
+            }
+
+            // RBAC check
+            if (user.role === "PASIEN") {
+                // Need to resolve pasien_id from akun_id since JWT only has akun_id
+                const pasien = await ExamsRepository.findPasienByAkunId(conn, user.akun_id);
+                if (!pasien || pasien.id !== exam.pasien_id) {
+                    const e = new Error("Akses ditolak");
+                    e.statusCode = 403;
+                    throw e;
+                }
+            } else if (!["PETUGAS", "DOKTER"].includes(user.role)) {
+                const e = new Error("Akses ditolak");
+                e.statusCode = 403;
+                throw e;
+            }
+
+            // Check blob exists in storage
+            const exists = await blobService.exists({
+                container: fileRow.container,
+                blobName: fileRow.blob_name,
+            });
+            if (!exists) {
+                const e = new Error("File tidak ditemukan");
+                e.statusCode = 404;
+                throw e;
+            }
+
+            // Generate SAS URL — 502 on error
+            let sas;
+            try {
+                sas = await blobService.generateReadSas({
+                    container: fileRow.container,
+                    blobName: fileRow.blob_name,
+                });
+            } catch (e) {
+                const err = new Error("Gagal membuat link unduhan, silakan coba lagi");
+                err.statusCode = 502;
+                err.cause = e;
+                throw err;
+            }
+
+            // Best-effort audit READ — fire-and-forget
+            AuditRepository.insert(conn, {
+                entity: "pemeriksaan",
+                entity_id: pemeriksaanId,
+                aksi: "READ",
+                changed_by_akun_id: user.akun_id,
+                detail: { blob_name: fileRow.blob_name, file_id: fileId },
+            }).catch((e) => console.warn("audit insert failed (best-effort):", e.message));
+
+            return {
+                url: sas.url,
+                expires_at: sas.expiresAt,
+                content_type: fileRow.content_type,
+                filename: fileRow.original_filename || path.basename(fileRow.blob_name),
+            };
         } finally {
             conn.release();
         }
@@ -289,47 +349,47 @@ export const ExamsService = {
 
     async deleteExam({ pemeriksaanId, akunId }) {
         const conn = await db.getConnection();
+        let toDelete = [];
         try {
-            // Begin transaction
             await conn.beginTransaction();
-
-            try {
-                // 1) Retrieve all file paths for exam
-                const files = await ExamsRepository.listFiles(conn, pemeriksaanId);
-                
-                // 2) Delete file records from database
-                await ExamsRepository.deleteFilesByExamId(conn, pemeriksaanId);
-                
-                // 3) Delete exam record from database
-                await ExamsRepository.deleteExam(conn, pemeriksaanId);
-                
-                // 4) Insert audit log
-                await AuditRepository.insert(conn, {
-                    entity: "pemeriksaan",
-                    entity_id: pemeriksaanId,
-                    aksi: "DELETE",
-                    changed_by_akun_id: akunId,
-                    detail: "Pemeriksaan deleted with files",
-                });
-
-                // 5) Commit transaction
-                await conn.commit();
-
-                // 6) Delete all files from disk (after successful commit)
-                for (const file of files) {
-                    const filePath = path.join(process.cwd(), file.file_path);
-                    await deleteFileFromDisk(filePath);
-                }
-
-                return { success: true, deletedFiles: files.length };
-            } catch (error) {
-                // Rollback transaction on failure (files remain on disk for safety)
-                await conn.rollback();
-                throw error;
-            }
+            // 1) List all pemeriksaan_file rows — collect blob_name + container
+            const files = await ExamsRepository.listFiles(conn, pemeriksaanId);
+            toDelete = files
+                .map((f) => ({ container: f.container, blobName: f.blob_name }))
+                .filter((b) => b.blobName);
+            // 2) Delete pemeriksaan_file rows
+            await ExamsRepository.deleteFilesByExamId(conn, pemeriksaanId);
+            // 3) Delete pemeriksaan row
+            await ExamsRepository.deleteExam(conn, pemeriksaanId);
+            // 4) Audit DELETE with detail.deleted_blobs = N
+            await AuditRepository.insert(conn, {
+                entity: "pemeriksaan",
+                entity_id: pemeriksaanId,
+                aksi: "DELETE",
+                changed_by_akun_id: akunId,
+                detail: { deleted_blobs: toDelete.length },
+            });
+            // 5) Commit
+            await conn.commit();
+        } catch (e) {
+            await conn.rollback();
+            throw e;
         } finally {
             conn.release();
         }
+        // 6) Post-commit: best-effort blob deletion — per-blob failure → warn + continue
+        for (const b of toDelete) {
+            await blobService
+                .deleteBlob(b)
+                .catch((e) =>
+                    console.warn("blob delete during exam delete failed (best-effort)", {
+                        container: b.container,
+                        blobName: b.blobName,
+                        err: e.message,
+                    })
+                );
+        }
+        return { success: true, deletedFiles: toDelete.length };
     }
 }
 

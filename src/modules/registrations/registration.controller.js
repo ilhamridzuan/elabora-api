@@ -6,15 +6,11 @@ async function create(req, res, next) {
     const { error, value } = createRegistrationSchema.validate(req.body);
     if (error) return res.status(400).json({ message: error.message });
 
-    if (!req.file) {
-      return res.status(400).json({ message: "Surat rujukan wajib diupload" });
-    }
-
     const result = await RegistrationService.create({
       akun_id: req.user.akun_id,
       jadwal_pemeriksaan_at: value.jadwal_pemeriksaan_at,
       tanggal_antrian: value.tanggal_antrian,
-      surat_rujukan_path: `src/uploads/surat-rujukan/${req.file.filename}`,
+      file: req.file || null,
     });
 
     if (result?.ok === false) {
@@ -48,8 +44,21 @@ async function queueToday(req, res, next) {
   }
 }
 
+async function downloadRujukan(req, res, next) {
+  try {
+    const result = await RegistrationService.downloadRujukan({
+      pendaftaranId: Number(req.params.id),
+      user: req.user,
+    });
+    return res.json(result);
+  } catch (e) {
+    next(e);
+  }
+}
+
 export const RegistrationController = {
   create,
   listMine,
   queueToday,
+  downloadRujukan,
 };

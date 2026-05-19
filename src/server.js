@@ -1,5 +1,6 @@
 import "dotenv/config";
 import app from "./app.js";
+import { blobService } from "./services/blob.service.js";
 
 // Validate JWT_SECRET before starting server
 if (!process.env.JWT_SECRET) {
@@ -18,6 +19,15 @@ if (process.env.JWT_SECRET.length < 32) {
 console.log("✓ JWT_SECRET validation passed");
 
 const port = process.env.PORT || 3000;
-app.listen(port, "0.0.0.0", () => {
-  console.log(`API running on port ${port}`);
-});
+
+(async () => {
+  try {
+    await blobService.init();
+  } catch (err) {
+    console.error("FATAL: Blob_Service init failed", err);
+    process.exit(1);
+  }
+  app.listen(port, "0.0.0.0", () => {
+    console.log(`API running on port ${port}`);
+  });
+})();

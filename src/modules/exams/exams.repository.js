@@ -1,4 +1,12 @@
 export const ExamsRepository = {
+  async findPasienByAkunId(conn, akunId) {
+    const [rows] = await conn.query(
+      `SELECT id, akun_id FROM pasien WHERE akun_id = ? LIMIT 1`,
+      [akunId]
+    );
+    return rows[0] || null;
+  },
+
   async listByPatient(conn, { pasien_id }) {
     const [rows] = await conn.query(
       `SELECT pe.id AS pemeriksaan_id,
@@ -81,18 +89,18 @@ export const ExamsRepository = {
     );
   },
 
-  async insertFile(conn, { pemeriksaan_id, file_path, file_type }) {
+  async insertFile(conn, { pemeriksaan_id, blob_name, container, content_type, size_bytes, sha256, file_type }) {
     const [result] = await conn.query(
-      `INSERT INTO pemeriksaan_file (pemeriksaan_id, file_path, file_type, uploaded_at)
-       VALUES (?, ?, ?, NOW())`,
-      [pemeriksaan_id, file_path, file_type]
+      `INSERT INTO pemeriksaan_file (pemeriksaan_id, blob_name, container, content_type, size_bytes, sha256, file_type, uploaded_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, NOW())`,
+      [pemeriksaan_id, blob_name, container, content_type, size_bytes, sha256, file_type]
     );
     return result.insertId;
   },
 
   async listFiles(conn, pemeriksaanId) {
     const [rows] = await conn.query(
-      `SELECT id, file_path, file_type, uploaded_at
+      `SELECT id, pemeriksaan_id, blob_name, container, content_type, size_bytes, sha256, file_type, uploaded_at
        FROM pemeriksaan_file
        WHERE pemeriksaan_id=?
        ORDER BY id DESC`,
@@ -103,12 +111,21 @@ export const ExamsRepository = {
 
   async getFileById(conn, fileId) {
     const [rows] = await conn.query(
-      `SELECT id, pemeriksaan_id, file_path, file_type, uploaded_at
+      `SELECT id, pemeriksaan_id, blob_name, container, content_type, size_bytes, sha256, file_type, uploaded_at
        FROM pemeriksaan_file
        WHERE id=?`,
       [fileId]
     );
     return rows[0] || null;
+  },
+
+  async updateFile(conn, fileId, { blob_name, container, content_type, size_bytes, sha256, file_type }) {
+    await conn.query(
+      `UPDATE pemeriksaan_file
+       SET blob_name=?, container=?, content_type=?, size_bytes=?, sha256=?, file_type=?, uploaded_at=NOW()
+       WHERE id=?`,
+      [blob_name, container, content_type, size_bytes, sha256, file_type, fileId]
+    );
   },
 
   async deleteFile(conn, fileId) {

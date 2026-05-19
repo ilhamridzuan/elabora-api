@@ -2,8 +2,6 @@ import express from "express";
 import cors from "cors";
 import helmet from "helmet";
 import morgan from "morgan";
-import fs from "fs";
-import path from "path";
 
 import authRoutes from "./modules/auth/auth.routes.js";
 import registrationRoutes from "./modules/registrations/registration.routes.js";
@@ -41,13 +39,6 @@ app.use(helmet());
 app.use(cors(corsOptions));
 app.use(express.json());
 app.use(morgan("dev"));
-
-const uploadBase = path.join(process.cwd(), "uploads");
-fs.mkdirSync(uploadBase, { recursive: true });
-fs.mkdirSync(path.join(uploadBase, "exams"), { recursive: true });
-fs.mkdirSync(path.join(uploadBase, "referrals"), { recursive: true });
-
-app.use("/uploads", express.static(uploadBase));
 
 app.get("/health", (req, res) => {
   res.json({ status: "ok" });

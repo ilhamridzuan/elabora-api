@@ -62,13 +62,17 @@ export async function uploadExamFile(req, res, next) {
   }
 }
 
-export async function updateExamFile(req, res, next) {
+export async function replaceExamFile(req, res, next) {
   try {
-    const id = Number(req.params.id);
+    const examId = Number(req.params.id);
+    const fileId = Number(req.params.fileId);
     if (!req.file) return res.status(422).json({ message: "File required" });
-    const files = await ExamsService.updateExamFile({ pemeriksaanId: id, file: req.file, akunId: req.user.akun_id });
-    return res.status(200).json({ files });
+    const updated = await ExamsService.replaceFile(examId, fileId, req.file, req.user);
+    return res.status(200).json({ file: updated });
   } catch (e) {
+    if (e.statusCode === 404) return res.status(404).json({ message: e.message });
+    if (e.statusCode === 422) return res.status(422).json({ message: e.message });
+    if (e.statusCode === 502) return res.status(502).json({ message: e.message });
     next(e);
   }
 }
@@ -98,5 +102,23 @@ export async function  listAll(req, res, next) {
     return res.json(result);
   } catch (err) {
     next(err);
+  }
+}
+
+export async function downloadFile(req, res, next) {
+  try {
+    const examId = Number(req.params.id);
+    const fileId = Number(req.params.fileId);
+    const result = await ExamsService.downloadFile({
+      pemeriksaanId: examId,
+      fileId,
+      user: req.user,
+    });
+    return res.status(200).json(result);
+  } catch (e) {
+    if (e.statusCode === 404) return res.status(404).json({ message: e.message });
+    if (e.statusCode === 403) return res.status(403).json({ message: e.message });
+    if (e.statusCode === 502) return res.status(502).json({ message: e.message });
+    next(e);
   }
 }
