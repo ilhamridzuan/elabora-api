@@ -75,4 +75,4 @@ jobs:
           package: .
 
       - name: Done
-        run: echo "Deployed -> https://${{ env.AZURE_WEBAPP_NAME }}.azurewebsites.net
+        run: echo "Deployed -> https://${{ env.AZURE_WEBAPP_NAME }}.azurewebsites.net"
