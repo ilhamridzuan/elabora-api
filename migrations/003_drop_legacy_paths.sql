@@ -2,7 +2,7 @@
 -- Feature: azure-blob-storage-migration
 -- Requirements: 6.5, 7.7
 --
--- Description: Drops legacy local-disk path columns from registrasi and
+-- Description: Drops legacy local-disk path columns from pendaftaran and
 --              pemeriksaan_file after all files have been migrated to Azure
 --              Blob Storage (migration 004 verified complete).
 --
@@ -17,9 +17,9 @@
 -- UP MIGRATION: Drop legacy path columns
 -- ============================================================================
 
--- Drop legacy surat_rujukan_path from registrasi
+-- Drop legacy surat_rujukan_path from pendaftaran
 -- (blob metadata columns surat_rujukan_blob_name etc. remain)
-ALTER TABLE registrasi
+ALTER TABLE pendaftaran
   DROP COLUMN IF EXISTS surat_rujukan_path;
 
 -- Drop legacy file_path from pemeriksaan_file
@@ -35,8 +35,8 @@ ALTER TABLE pemeriksaan_file
 
 -- Uncomment to rollback:
 
--- ALTER TABLE registrasi
---   ADD COLUMN IF NOT EXISTS surat_rujukan_path VARCHAR(512) NULL;
+-- ALTER TABLE pendaftaran
+--   ADD COLUMN IF NOT EXISTS surat_rujukan_path VARCHAR(255) NOT NULL;
 
 -- ALTER TABLE pemeriksaan_file
---   ADD COLUMN IF NOT EXISTS file_path VARCHAR(512) NULL;
+--   ADD COLUMN IF NOT EXISTS file_path VARCHAR(255) NOT NULL;
