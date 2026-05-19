@@ -66,7 +66,16 @@ jobs:
 
       - name: Install production dependencies only
         run: npm ci --omit=dev
-
+      
+      - name: Run Database Migrations
+        env:
+          # Pastikan Anda telah menyimpan kredensial DB production di menu GitHub Secrets
+          DB_HOST: ${{ secrets.PROD_DB_HOST }}
+          DB_USER: ${{ secrets.PROD_DB_USER }}
+          DB_PASSWORD: ${{ secrets.PROD_DB_PASSWORD }}
+          DB_NAME: ${{ secrets.PROD_DB_NAME }}
+        run: node migrations/run-migration.js up
+      
       - name: Deploy to Azure Web App
         uses: azure/webapps-deploy@v3
         with:
