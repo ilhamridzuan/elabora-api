@@ -3,7 +3,7 @@
  * Feature: azure-blob-storage-migration
  * Requirements: 6.5, 7.7
  *
- * Queries registrasi and pemeriksaan_file for rows that still have a legacy
+ * Queries pendaftaran and pemeriksaan_file for rows that still have a legacy
  * path column set but no blob_name yet. If any such rows exist, the drop
  * migration MUST NOT run — this script exits with code 1 to block it.
  *
@@ -35,14 +35,14 @@ dotenv.config({ path: join(__dirname, '..', '.env') });
 // ============================================================================
 
 /**
- * Count residue rows in registrasi (path set, blob_name null).
+ * Count residue rows in pendaftaran (path set, blob_name null).
  * @param {import('mysql2/promise').Connection} conn
  * @returns {Promise<number>}
  */
-async function countRegistrasiResidue(conn) {
+async function countPendaftaranResidue(conn) {
   const [[row]] = await conn.query(
     `SELECT COUNT(*) AS cnt
-     FROM registrasi
+     FROM pendaftaran
      WHERE surat_rujukan_path IS NOT NULL
        AND surat_rujukan_blob_name IS NULL`
   );
@@ -95,18 +95,18 @@ export async function assertNoLegacyResidue(existingConnection) {
   }
 
   try {
-    const [registrasiCount, pemeriksaanCount] = await Promise.all([
-      countRegistrasiResidue(conn),
+    const [pendaftaranCount, pemeriksaanCount] = await Promise.all([
+      countPendaftaranResidue(conn),
       countPemeriksaanFileResidue(conn),
     ]);
 
-    const total = registrasiCount + pemeriksaanCount;
+    const total = pendaftaranCount + pemeriksaanCount;
 
     if (total > 0) {
       const msg =
         `[check_legacy_path_residue] RESIDUE DETECTED — legacy path columns still in use.\n` +
-        `  registrasi (surat_rujukan_path set, blob_name null): ${registrasiCount} row(s)\n` +
-        `  pemeriksaan_file (file_path set, blob_name null):     ${pemeriksaanCount} row(s)\n` +
+        `  pendaftaran (surat_rujukan_path set, blob_name null):  ${pendaftaranCount} row(s)\n` +
+        `  pemeriksaan_file (file_path set, blob_name null):      ${pemeriksaanCount} row(s)\n` +
         `  Total: ${total} row(s)\n` +
         `  ACTION REQUIRED: Run migration 004 (migrate_files_to_blob) and verify all rows\n` +
         `  have blob_name populated before dropping legacy path columns.`;
