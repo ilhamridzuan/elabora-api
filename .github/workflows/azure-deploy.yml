@@ -71,8 +71,12 @@ jobs:
         env:
           DB_HOST: ${{ secrets.PROD_DB_HOST }}
           DB_USER: ${{ secrets.PROD_DB_USER }}
-          DB_PASSWORD: ${{ secrets.PROD_DB_PASSWORD }}
+          DB_PASS: ${{ secrets.PROD_DB_PASSWORD }}
           DB_NAME: ${{ secrets.PROD_DB_NAME }}
+          AZURE_STORAGE_ACCOUNT_NAME: ${{ secrets.AZURE_STORAGE_ACCOUNT_NAME }}
+          AZURE_STORAGE_CONNECTION_STRING: ${{ secrets.AZURE_STORAGE_CONNECTION_STRING }}
+          AZURE_BLOB_CONTAINER_REFERRALS: ${{ secrets.AZURE_BLOB_CONTAINER_REFERRALS }}
+          AZURE_BLOB_CONTAINER_EXAMS: ${{ secrets.AZURE_BLOB_CONTAINER_EXAMS }}
         run: node migrations/run-migration.js up
       
       - name: Deploy to Azure Web App

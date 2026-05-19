@@ -5,12 +5,19 @@
  *
  * Applies database migrations in sequence with idempotency checks.
  *
+ * Correct execution order (UP):
+ *   001 → Add patient search indexes
+ *   002 → Add blob metadata columns
+ *   004 → Migrate legacy files to Azure Blob Storage
+ *   003 → Drop legacy path columns (requires 004 complete)
+ *
  * Usage:
- *   node migrations/run-migration.js up    # Apply all migrations
+ *   node migrations/run-migration.js up    # Apply all migrations in correct order
  *   node migrations/run-migration.js down  # Rollback all migrations
  *   node migrations/run-migration.js up 001   # Apply specific migration
  *   node migrations/run-migration.js up 002   # Apply specific migration
- *   node migrations/run-migration.js up 003   # Apply specific migration
+ *   node migrations/run-migration.js up 004   # Run file migration to blob
+ *   node migrations/run-migration.js up 003   # Drop legacy paths (run AFTER 004)
  */
 
 import mysql from 'mysql2/promise';
@@ -332,7 +339,8 @@ async function dropIndex(connection, indexConfig) {
 }
 
 /**
- * Apply migrations
+ * Apply migrations in correct order: 001 → 002 → 004 → 003
+ * NOTE: 004 (file migration to blob) MUST run before 003 (drop legacy paths)
  */
 async function migrateUp(connection, filter) {
   if (!filter || filter === '001') {
@@ -362,6 +370,21 @@ async function migrateUp(connection, filter) {
       await migrate002Up(connection);
     } catch (error) {
       console.error('✗ Error in migration 002:', error.message);
+      throw error;
+    }
+  }
+
+  // 004 must run BEFORE 003 — migrates files to blob so residue check passes
+  if (!filter || filter === '004') {
+    console.log('\n========================================');
+    console.log('Applying Migration 004: Migrate Legacy Files to Azure Blob Storage');
+    console.log('========================================\n');
+    console.log('Running: node migrations/004_migrate_files_to_blob.js');
+    const { execSync } = await import('child_process');
+    try {
+      execSync('node migrations/004_migrate_files_to_blob.js', { stdio: 'inherit' });
+    } catch (error) {
+      console.error('✗ Error in migration 004:', error.message);
       throw error;
     }
   }
@@ -435,10 +458,11 @@ async function main() {
     console.error('  down - Rollback migrations (all, or specific number)');
     console.error('');
     console.error('Examples:');
-    console.error('  node migrations/run-migration.js up         # Apply all migrations');
+    console.error('  node migrations/run-migration.js up         # Apply all migrations (001→002→004→003)');
     console.error('  node migrations/run-migration.js up 001     # Apply migration 001 only');
     console.error('  node migrations/run-migration.js up 002     # Apply migration 002 only');
-    console.error('  node migrations/run-migration.js up 003     # Apply migration 003 only (drop legacy paths)');
+    console.error('  node migrations/run-migration.js up 004     # Run file migration to blob');
+    console.error('  node migrations/run-migration.js up 003     # Drop legacy paths (run AFTER 004)');
     console.error('  node migrations/run-migration.js down       # Rollback all migrations');
     console.error('  node migrations/run-migration.js down 003   # Rollback migration 003 only');
     console.error('  node migrations/run-migration.js down 002   # Rollback migration 002 only');
@@ -446,8 +470,8 @@ async function main() {
     process.exit(1);
   }
 
-  if (filter && !['001', '002', '003'].includes(filter)) {
-    console.error(`Unknown migration number: ${filter}. Valid values: 001, 002, 003`);
+  if (filter && !['001', '002', '003', '004'].includes(filter)) {
+    console.error(`Unknown migration number: ${filter}. Valid values: 001, 002, 003, 004`);
     process.exit(1);
   }
   
