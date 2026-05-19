@@ -64,7 +64,7 @@ const INDEXES = [
 // Requirements: 6.1, 6.2, 6.3
 // ============================================================================
 
-const BLOB_COLUMNS_REGISTRASI = [
+const BLOB_COLUMNS_PENDAFTARAN = [
   { column: 'surat_rujukan_blob_name',    definition: 'VARCHAR(512) NULL' },
   { column: 'surat_rujukan_container',    definition: 'VARCHAR(128) NULL' },
   { column: 'surat_rujukan_content_type', definition: 'VARCHAR(128) NULL' },
@@ -134,9 +134,9 @@ async function migrate002Up(connection) {
 
   let addedCount = 0;
 
-  // registrasi table
-  for (const { column, definition } of BLOB_COLUMNS_REGISTRASI) {
-    const added = await addColumnIfMissing(connection, 'registrasi', column, definition);
+  // pendaftaran table
+  for (const { column, definition } of BLOB_COLUMNS_PENDAFTARAN) {
+    const added = await addColumnIfMissing(connection, 'pendaftaran', column, definition);
     if (added) addedCount++;
   }
 
@@ -189,9 +189,9 @@ async function migrate002Down(connection) {
     if (dropped) droppedCount++;
   }
 
-  // registrasi columns (reverse order)
-  for (const { column } of [...BLOB_COLUMNS_REGISTRASI].reverse()) {
-    const dropped = await dropColumnIfExists(connection, 'registrasi', column);
+  // pendaftaran columns (reverse order)
+  for (const { column } of [...BLOB_COLUMNS_PENDAFTARAN].reverse()) {
+    const dropped = await dropColumnIfExists(connection, 'pendaftaran', column);
     if (dropped) droppedCount++;
   }
 
@@ -227,8 +227,8 @@ async function migrate003Up(connection) {
 
   let droppedCount = 0;
 
-  // Drop surat_rujukan_path from registrasi
-  const dropped1 = await dropColumnIfExists(connection, 'registrasi', 'surat_rujukan_path');
+  // Drop surat_rujukan_path from pendaftaran
+  const dropped1 = await dropColumnIfExists(connection, 'pendaftaran', 'surat_rujukan_path');
   if (dropped1) droppedCount++;
 
   // Drop file_path from pemeriksaan_file
@@ -252,12 +252,14 @@ async function migrate003Down(connection) {
 
   let addedCount = 0;
 
-  // Re-add surat_rujukan_path to registrasi
-  const added1 = await addColumnIfMissing(connection, 'registrasi', 'surat_rujukan_path', 'VARCHAR(512) NULL');
+  // Re-add surat_rujukan_path to pendaftaran
+  // NOTE: actual column is NOT NULL in production — restored as NOT NULL here
+  const added1 = await addColumnIfMissing(connection, 'pendaftaran', 'surat_rujukan_path', 'VARCHAR(255) NOT NULL');
   if (added1) addedCount++;
 
   // Re-add file_path to pemeriksaan_file
-  const added2 = await addColumnIfMissing(connection, 'pemeriksaan_file', 'file_path', 'VARCHAR(512) NULL');
+  // NOTE: actual column is NOT NULL in production — restored as NOT NULL here
+  const added2 = await addColumnIfMissing(connection, 'pemeriksaan_file', 'file_path', 'VARCHAR(255) NOT NULL');
   if (added2) addedCount++;
 
   console.log('\n========================================');
@@ -461,7 +463,7 @@ async function main() {
       database: process.env.DB_NAME,
       ssl: {
         rejectUnauthorized: true
-      }
+    }
     });
     
     console.log('✓ Database connection established');
