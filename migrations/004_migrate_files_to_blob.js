@@ -6,7 +6,7 @@
  * Migrates legacy disk files to Azure Blob Storage.
  *
  * Tables:
- *   registrasi       → Container_Rujukan  (surat_rujukan_path → blob)
+ *   pendaftaran      → Container_Rujukan  (surat_rujukan_path → blob)
  *   pemeriksaan_file → Container_Hasil    (file_path → blob)
  *
  * Blob naming: legacy/{entity_id}/{basename}
@@ -89,14 +89,14 @@ async function readFileSafe(filePath) {
  * @param {import('mysql2/promise').Connection} conn
  * @returns {Promise<{ok: number, fail: number}>}
  */
-async function migrateRegistrasi(conn) {
+async function migratePendaftaran(conn) {
   console.log('\n========================================');
-  console.log('Migrating table: registrasi');
+  console.log('Migrating table: pendaftaran');
   console.log('========================================\n');
 
   const [rows] = await conn.query(
     `SELECT id, surat_rujukan_path
-     FROM registrasi
+     FROM pendaftaran
      WHERE surat_rujukan_path IS NOT NULL
        AND surat_rujukan_blob_name IS NULL`
   );
@@ -134,7 +134,7 @@ async function migrateRegistrasi(conn) {
 
       // UPDATE row — guarded by blob_name IS NULL (idempotent)
       const [result] = await conn.query(
-        `UPDATE registrasi
+        `UPDATE pendaftaran
          SET surat_rujukan_blob_name    = ?,
              surat_rujukan_container    = ?,
              surat_rujukan_content_type = ?,
@@ -147,18 +147,18 @@ async function migrateRegistrasi(conn) {
 
       if (result.affectedRows === 0) {
         // Row already updated by concurrent run — idempotent, count as ok
-        console.log(`  [SKIP] registrasi id=${id} already migrated (guard hit)`);
+        console.log(`  [SKIP] pendaftaran id=${id} already migrated (guard hit)`);
       } else {
-        console.log(`  [OK]   registrasi id=${id} → ${container}/${blobName}`);
+        console.log(`  [OK]   pendaftaran id=${id} → ${container}/${blobName}`);
       }
       ok++;
     } catch (err) {
-      console.error(`  [FAIL] registrasi id=${id} path=${surat_rujukan_path}: ${err.message}`);
+      console.error(`  [FAIL] pendaftaran id=${id} path=${surat_rujukan_path}: ${err.message}`);
       fail++;
     }
   }
 
-  console.log(`\nregistrasi summary: ok=${ok} fail=${fail}`);
+  console.log(`\npendaftaran summary: ok=${ok} fail=${fail}`);
   return { ok, fail };
 }
 
@@ -276,8 +276,8 @@ async function main() {
   }
 
   try {
-    // ── Migrate registrasi ─────────────────────────────────────────────────
-    const regResult = await migrateRegistrasi(connection);
+    // ── Migrate pendaftaran ────────────────────────────────────────────────
+    const regResult = await migratePendaftaran(connection);
     if (regResult.fail > 0) anyFailure = true;
 
     // ── Migrate pemeriksaan_file ───────────────────────────────────────────
@@ -287,7 +287,7 @@ async function main() {
     // ── Final summary ──────────────────────────────────────────────────────
     console.log('\n========================================');
     console.log('MIGRATION COMPLETE');
-    console.log(`  registrasi:       ok=${regResult.ok} fail=${regResult.fail}`);
+    console.log(`  pendaftaran:      ok=${regResult.ok} fail=${regResult.fail}`);
     console.log(`  pemeriksaan_file: ok=${pemResult.ok} fail=${pemResult.fail}`);
     console.log('========================================\n');
 
