@@ -73,6 +73,17 @@ async function readFileSafe(filePath) {
 }
 
 // ============================================================================
+// Detect "file not present on disk" errors specifically
+// (readFileSafe throws this exact prefix; fs ENOENT also covered defensively)
+// ============================================================================
+
+function isFileMissingError(err) {
+  if (!err || !err.message) return false;
+  if (err.code === 'ENOENT') return true;
+  return err.message.startsWith('File not found:');
+}
+
+// ============================================================================
 // Migrate pendaftaran table
 // ============================================================================
 
@@ -92,6 +103,7 @@ async function migratePendaftaran(conn) {
 
   let ok = 0;
   let fail = 0;
+  let missing = 0;
 
   for (const row of rows) {
     const { id, surat_rujukan_path } = row;
@@ -130,13 +142,33 @@ async function migratePendaftaran(conn) {
       }
       ok++;
     } catch (err) {
-      console.error(`  [FAIL] pendaftaran id=${id} path=${surat_rujukan_path}: ${err.message}`);
-      fail++;
+      if (isFileMissingError(err)) {
+        // Source file gone from disk — unrecoverable. Mark blob_name with a
+        // sentinel so the residue check (blob_name IS NULL) passes and
+        // migration 003 can drop the path column. Path stays as-is (NOT NULL).
+        const sentinelBlobName = `__missing__/${id}/${basename(surat_rujukan_path)}`;
+        await conn.query(
+          `UPDATE pendaftaran
+           SET surat_rujukan_blob_name    = ?,
+               surat_rujukan_container    = ?,
+               surat_rujukan_content_type = NULL,
+               surat_rujukan_size_bytes   = NULL,
+               surat_rujukan_sha256       = NULL
+           WHERE id = ?
+             AND surat_rujukan_blob_name IS NULL`,
+          [sentinelBlobName, '__missing__', id]
+        );
+        console.warn(`  [MISSING] pendaftaran id=${id} path=${surat_rujukan_path} (file absent on disk — sentinel set)`);
+        missing++;
+      } else {
+        console.error(`  [FAIL] pendaftaran id=${id} path=${surat_rujukan_path}: ${err.message}`);
+        fail++;
+      }
     }
   }
 
-  console.log(`\npendaftaran summary: ok=${ok} fail=${fail}`);
-  return { ok, fail };
+  console.log(`\npendaftaran summary: ok=${ok} missing=${missing} fail=${fail}`);
+  return { ok, fail, missing };
 }
 
 // ============================================================================
@@ -159,6 +191,7 @@ async function migratePemeriksaanFile(conn) {
 
   let ok = 0;
   let fail = 0;
+  let missing = 0;
 
   for (const row of rows) {
     const { id, pemeriksaan_id, file_path } = row;
@@ -197,13 +230,31 @@ async function migratePemeriksaanFile(conn) {
       }
       ok++;
     } catch (err) {
-      console.error(`  [FAIL] pemeriksaan_file id=${id} path=${file_path}: ${err.message}`);
-      fail++;
+      if (isFileMissingError(err)) {
+        // Source file gone — sentinel blob_name to clear residue
+        const sentinelBlobName = `__missing__/${pemeriksaan_id}/${basename(file_path)}`;
+        await conn.query(
+          `UPDATE pemeriksaan_file
+           SET blob_name    = ?,
+               container    = ?,
+               content_type = NULL,
+               size_bytes   = NULL,
+               sha256       = NULL
+           WHERE id = ?
+             AND blob_name IS NULL`,
+          [sentinelBlobName, '__missing__', id]
+        );
+        console.warn(`  [MISSING] pemeriksaan_file id=${id} path=${file_path} (file absent on disk — sentinel set)`);
+        missing++;
+      } else {
+        console.error(`  [FAIL] pemeriksaan_file id=${id} path=${file_path}: ${err.message}`);
+        fail++;
+      }
     }
   }
 
-  console.log(`\npemeriksaan_file summary: ok=${ok} fail=${fail}`);
-  return { ok, fail };
+  console.log(`\npemeriksaan_file summary: ok=${ok} missing=${missing} fail=${fail}`);
+  return { ok, fail, missing };
 }
 
 // ============================================================================
@@ -227,12 +278,12 @@ export async function runMigration004(connection) {
 
   console.log('\n========================================');
   console.log('MIGRATION 004 COMPLETE');
-  console.log(`  pendaftaran:      ok=${regResult.ok} fail=${regResult.fail}`);
-  console.log(`  pemeriksaan_file: ok=${pemResult.ok} fail=${pemResult.fail}`);
+  console.log(`  pendaftaran:      ok=${regResult.ok} missing=${regResult.missing} fail=${regResult.fail}`);
+  console.log(`  pemeriksaan_file: ok=${pemResult.ok} missing=${pemResult.missing} fail=${pemResult.fail}`);
   console.log('========================================\n');
 
   if (anyFailure) {
-    throw new Error('[004] One or more files failed to migrate. Check logs above.');
+    throw new Error('[004] One or more files failed to migrate (real errors, not missing files). Check logs above.');
   }
 }
 
@@ -276,8 +327,8 @@ async function main() {
 
     console.log('\n========================================');
     console.log('MIGRATION COMPLETE');
-    console.log(`  pendaftaran:      ok=${regResult.ok} fail=${regResult.fail}`);
-    console.log(`  pemeriksaan_file: ok=${pemResult.ok} fail=${pemResult.fail}`);
+    console.log(`  pendaftaran:      ok=${regResult.ok} missing=${regResult.missing} fail=${regResult.fail}`);
+    console.log(`  pemeriksaan_file: ok=${pemResult.ok} missing=${pemResult.missing} fail=${pemResult.fail}`);
     console.log('========================================\n');
 
   } catch (err) {
