@@ -25,6 +25,7 @@ import dotenv from 'dotenv';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { assertNoLegacyResidue } from './check_legacy_path_residue.js';
+import { runMigration004 } from './004_migrate_files_to_blob.js';
 
 // Load environment variables
 const __filename = fileURLToPath(import.meta.url);
@@ -379,11 +380,8 @@ async function migrateUp(connection, filter) {
     console.log('\n========================================');
     console.log('Applying Migration 004: Migrate Legacy Files to Azure Blob Storage');
     console.log('========================================\n');
-    const { execSync } = await import('child_process');
-    const script004 = join(__dirname, '004_migrate_files_to_blob.js');
-    console.log(`Running: node ${script004}`);
     try {
-      execSync(`node "${script004}"`, { stdio: 'inherit' });
+      await runMigration004(connection);
     } catch (error) {
       console.error('✗ Error in migration 004:', error.message);
       throw error;
