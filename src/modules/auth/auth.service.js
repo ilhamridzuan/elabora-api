@@ -157,35 +157,43 @@ export const AuthService = {
 
   async login(username, password) {
     const conn = await db.getConnection();
-    const akun = await AuthRepository.findByUsername(conn, username);
+    try {
+      const akun = await AuthRepository.findByUsername(conn, username);
 
-    if (!akun) {
-      const error = new Error("Username atau password salah");
-      error.status = 401;
-      throw error;
+      if (!akun) {
+        const error = new Error("Username atau password salah");
+        error.status = 401;
+        throw error;
+      }
+
+      const match = await bcrypt.compare(password, akun.password_hash);
+      if (!match) {
+        const error = new Error("Username atau password salah");
+        error.status = 401;
+        throw error;
+      }
+
+      const token = jwt.sign(
+        { akun_id: akun.id, role: akun.role },
+        process.env.JWT_SECRET,
+        { expiresIn: "1d" }
+      );
+
+      return { token, role: akun.role };
+    } finally {
+      conn.release();
     }
-
-    const match = await bcrypt.compare(password, akun.password_hash);
-    if (!match) {
-      const error = new Error("Username atau password salah");
-      error.status = 401;
-      throw error;
-    }
-
-    const token = jwt.sign(
-      { akun_id: akun.id, role: akun.role },
-      process.env.JWT_SECRET,
-      { expiresIn: "1d" }
-    );
-
-    return { token, role: akun.role };
   },
 
   async getMe(akunId, role) {
     const conn = await db.getConnection();
-    const akun = await AuthRepository.findAkunById(conn, akunId);
-    const profil = await AuthRepository.findProfileByRole(conn, akunId, role);
+    try {
+      const akun = await AuthRepository.findAkunById(conn, akunId);
+      const profil = await AuthRepository.findProfileByRole(conn, akunId, role);
 
-    return { akun, profil };
+      return { akun, profil };
+    } finally {
+      conn.release();
+    }
   },
 };

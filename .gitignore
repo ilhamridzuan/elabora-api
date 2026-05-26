@@ -142,3 +142,4 @@ uploads/
 .env
 .kiro/
 src/uploads/
+tests/
