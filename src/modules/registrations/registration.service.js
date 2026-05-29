@@ -238,4 +238,65 @@ export const RegistrationService = {
       conn.release();
     }
   },
+
+  async getByPatientId({ patientId, status, page = 1, limit = 20 }) {
+    // Validate patientId
+    if (!patientId || isNaN(patientId) || patientId <= 0) {
+      const e = new Error("Invalid patient ID");
+      e.statusCode = 400;
+      throw e;
+    }
+
+    // Validate limit (max 100)
+    const validLimit = Math.min(Math.max(1, parseInt(limit) || 20), 100);
+    const validPage = Math.max(1, parseInt(page) || 1);
+    const offset = (validPage - 1) * validLimit;
+
+    // Validate status if provided
+    const validStatuses = ["MENUNGGU", "DISETUJUI", "DITOLAK", "DIBATALKAN"];
+    if (status && !validStatuses.includes(status)) {
+      const e = new Error(`Invalid status. Must be one of: ${validStatuses.join(", ")}`);
+      e.statusCode = 400;
+      throw e;
+    }
+
+    const conn = await db.getConnection();
+    try {
+      // Import PatientsRepository to check if patient exists
+      const { PatientsRepository } = await import("../patients/patients.repository.js");
+      
+      // Check if patient exists
+      const patient = await PatientsRepository.findById(conn, patientId);
+      if (!patient) {
+        const e = new Error("Patient not found");
+        e.statusCode = 404;
+        throw e;
+      }
+
+      // Get registrations with pagination
+      const registrations = await RegistrationRepository.listByPatientIdWithPagination(conn, {
+        pasien_id: patientId,
+        status: status || null,
+        limit: validLimit,
+        offset,
+      });
+
+      // Get total count for pagination metadata
+      const total = await RegistrationRepository.countByPatientId(conn, {
+        pasien_id: patientId,
+        status: status || null,
+      });
+
+      return {
+        data: registrations,
+        meta: {
+          page: validPage,
+          limit: validLimit,
+          total,
+        },
+      };
+    } finally {
+      conn.release();
+    }
+  },
 };

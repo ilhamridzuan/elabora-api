@@ -114,4 +114,45 @@ export const RegistrationRepository = {
     );
     return rows[0] || null;
   },
+
+  async listByPatientIdWithPagination(conn, { pasien_id, status, limit, offset }) {
+    const params = [pasien_id];
+    let sql = `
+      SELECT 
+        p.id,
+        p.pasien_id,
+        p.no_antrian,
+        p.no_lab,
+        p.status,
+        p.tanggal_antrian,
+        p.jadwal_pemeriksaan_at,
+        p.surat_rujukan_blob_name AS file_path,
+        p.created_at
+      FROM pendaftaran p
+      WHERE p.pasien_id = ?`;
+
+    if (status) {
+      sql += " AND p.status = ?";
+      params.push(status);
+    }
+
+    sql += " ORDER BY p.tanggal_antrian DESC, p.created_at DESC LIMIT ? OFFSET ?";
+    params.push(limit, offset);
+
+    const [rows] = await conn.query(sql, params);
+    return rows;
+  },
+
+  async countByPatientId(conn, { pasien_id, status }) {
+    const params = [pasien_id];
+    let sql = "SELECT COUNT(*) AS total FROM pendaftaran WHERE pasien_id = ?";
+
+    if (status) {
+      sql += " AND status = ?";
+      params.push(status);
+    }
+
+    const [rows] = await conn.query(sql, params);
+    return rows[0]?.total || 0;
+  },
 };

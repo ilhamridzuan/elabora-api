@@ -47,3 +47,25 @@ export async function advancedSearch(req, res, next) {
     next(e);
   }
 }
+
+export async function getPatientRegistrations(req, res, next) {
+  try {
+    const patientId = Number(req.params.patientId);
+    const { status, limit, page } = req.query;
+
+    // Import RegistrationService
+    const { RegistrationService } = await import("../registrations/registration.service.js");
+
+    const result = await RegistrationService.getByPatientId({
+      patientId,
+      status,
+      limit,
+      page,
+    });
+
+    return res.json(result);
+  } catch (e) {
+    next(e);
+  }
+}
+
