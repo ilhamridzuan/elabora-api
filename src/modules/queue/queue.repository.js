@@ -9,8 +9,7 @@ export const QueueRepository = {
               pd.no_lab,
               pd.jadwal_pemeriksaan_at,
               pd.tanggal_antrian,
-              pd.status,
-              pd.surat_rujukan_path
+              pd.status
        FROM pendaftaran pd
        JOIN pasien ps ON ps.id = pd.pasien_id
        WHERE pd.tanggal_antrian = ?
