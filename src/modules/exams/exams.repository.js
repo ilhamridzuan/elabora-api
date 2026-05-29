@@ -1,4 +1,20 @@
 export const ExamsRepository = {
+  async getNextPemeriksaanId(conn) {
+    const [rows] = await conn.query(
+      "SELECT MAX(id) AS max_id FROM pemeriksaan FOR UPDATE"
+    );
+    const maxId = rows[0]?.max_id ?? 0;
+    return maxId + 1;
+  },
+
+  async getNextPemeriksaanFileId(conn) {
+    const [rows] = await conn.query(
+      "SELECT MAX(id) AS max_id FROM pemeriksaan_file FOR UPDATE"
+    );
+    const maxId = rows[0]?.max_id ?? 0;
+    return maxId + 1;
+  },
+
   async findPasienByAkunId(conn, akunId) {
     const [rows] = await conn.query(
       `SELECT id, akun_id FROM pasien WHERE akun_id = ? LIMIT 1`,
@@ -55,10 +71,12 @@ export const ExamsRepository = {
   },
 
   async create(conn, payload) {
+    const nextId = await this.getNextPemeriksaanId(conn);
     const [result] = await conn.query(
-      `INSERT INTO pemeriksaan (pendaftaran_id, kategori_id, dokter_id, petugas_lab_id, tgl_pemeriksaan, status_validasi, status_hasil, catatan, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
+      `INSERT INTO pemeriksaan (id, pendaftaran_id, kategori_id, dokter_id, petugas_lab_id, tgl_pemeriksaan, status_validasi, status_hasil, catatan, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
       [
+        nextId,
         payload.pendaftaran_id,
         payload.kategori_id,
         payload.dokter_id ?? null,
@@ -69,7 +87,7 @@ export const ExamsRepository = {
         payload.catatan ?? null,
       ]
     );
-    return result.insertId;
+    return nextId;
   },
 
   async update(conn, id, patch) {
@@ -90,12 +108,13 @@ export const ExamsRepository = {
   },
 
   async insertFile(conn, { pemeriksaan_id, blob_name, container, content_type, size_bytes, sha256, file_type }) {
+    const nextId = await this.getNextPemeriksaanFileId(conn);
     const [result] = await conn.query(
-      `INSERT INTO pemeriksaan_file (pemeriksaan_id, blob_name, container, content_type, size_bytes, sha256, file_type, uploaded_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, NOW())`,
-      [pemeriksaan_id, blob_name, container, content_type, size_bytes, sha256, file_type]
+      `INSERT INTO pemeriksaan_file (id, pemeriksaan_id, blob_name, container, content_type, size_bytes, sha256, file_type, uploaded_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
+      [nextId, pemeriksaan_id, blob_name, container, content_type, size_bytes, sha256, file_type]
     );
-    return result.insertId;
+    return nextId;
   },
 
   async listFiles(conn, pemeriksaanId) {
