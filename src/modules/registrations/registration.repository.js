@@ -16,16 +16,26 @@ export const RegistrationRepository = {
     return rows[0]?.last_no ?? null;
   },
 
+  async getNextPendaftaranId(conn) {
+    // penting: FOR UPDATE agar aman concurrency di transaksi
+    const [rows] = await conn.query(
+      "SELECT MAX(id) AS max_id FROM pendaftaran FOR UPDATE"
+    );
+    const maxId = rows[0]?.max_id ?? 0;
+    return maxId + 1;
+  },
+
   async insertPendaftaran(conn, payload) {
     const [r] = await conn.query(
       `INSERT INTO pendaftaran
-       (pasien_id, no_antrian, no_lab, tanggal_antrian, jadwal_pemeriksaan_at,
+       (id, pasien_id, no_antrian, no_lab, tanggal_antrian, jadwal_pemeriksaan_at,
         status,
         surat_rujukan_blob_name, surat_rujukan_container, surat_rujukan_content_type,
         surat_rujukan_size_bytes, surat_rujukan_sha256,
         created_at, updated_at)
-       VALUES (?, ?, 'DEFAULT', ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
+       VALUES (?, ?, ?, 'DEFAULT', ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
       [
+        payload.id,
         payload.pasien_id,
         payload.no_antrian,
         payload.tanggal_antrian,

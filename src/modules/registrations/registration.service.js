@@ -85,7 +85,11 @@ export const RegistrationService = {
       const lastNo = await RegistrationRepository.getLastQueueNumberForDate(conn, tanggal_antrian);
       const nextNo = (lastNo || 0) + 1;
 
+      // Generate ID manually karena tabel tidak memiliki AUTO_INCREMENT
+      const nextId = await RegistrationRepository.getNextPendaftaranId(conn);
+
       const pendaftaranId = await RegistrationRepository.insertPendaftaran(conn, {
+        id: nextId,
         pasien_id: pasien.id,
         no_antrian: nextNo,
         tanggal_antrian,
