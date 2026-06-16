@@ -23,22 +23,23 @@
 | 10 | `GET` | `/patients/` | DOKTER, PETUGAS | List semua pasien |
 | 11 | `GET` | `/patients/:id` | DOKTER, PETUGAS | Detail pasien |
 | 12 | `POST` | `/patients/search` | DOKTER, PETUGAS | Pencarian lanjutan |
-| 13 | `GET` | `/queue/today` | Auth | Antrian hari ini |
-| 14 | `GET` | `/queue/stats` | Auth | Statistik antrian |
-| 15 | `POST` | `/queue/:id/call` | PETUGAS | Panggil antrian |
-| 16 | `POST` | `/queue/:id/next` | PETUGAS | Selesaikan & panggil berikutnya |
-| 17 | `POST` | `/queue/:id/cancel` | PETUGAS | Batalkan antrian |
-| 18 | `GET` | `/exams/all` | PETUGAS, DOKTER | List semua pemeriksaan |
-| 19 | `GET` | `/exams/patients/:pasienId` | Auth | List pemeriksaan per pasien |
-| 20 | `GET` | `/exams/:id` | Auth | Detail pemeriksaan |
-| 21 | `POST` | `/exams/` | PETUGAS | Buat pemeriksaan |
-| 22 | `PATCH` | `/exams/:id` | PETUGAS | Update pemeriksaan |
-| 23 | `POST` | `/exams/:id/files` | PETUGAS | Upload file hasil |
-| 24 | `PATCH` | `/exams/:id/files/:fileId` | PETUGAS | Replace file hasil |
-| 25 | `GET` | `/exams/:id/files/:fileId/download` | Auth | Download file hasil |
-| 26 | `DELETE` | `/exams/:id` | PETUGAS | Hapus pemeriksaan |
-| 27 | `GET` | `/audit-logs` | PETUGAS | List audit log |
-| 28 | `POST` | `/devices/token` | Auth | Simpan FCM token |
+| 13 | `GET` | `/patients/:patientId/registrations` | DOKTER, PETUGAS | List pendaftaran per pasien |
+| 14 | `GET` | `/queue/today` | Auth | Antrian hari ini |
+| 15 | `GET` | `/queue/stats` | Auth | Statistik antrian |
+| 16 | `POST` | `/queue/:id/call` | PETUGAS | Panggil antrian |
+| 17 | `POST` | `/queue/:id/next` | PETUGAS | Selesaikan & panggil berikutnya |
+| 18 | `POST` | `/queue/:id/cancel` | PETUGAS | Batalkan antrian |
+| 19 | `GET` | `/exams/all` | PETUGAS, DOKTER | List semua pemeriksaan |
+| 20 | `GET` | `/exams/patients/:pasienId` | Auth | List pemeriksaan per pasien |
+| 21 | `GET` | `/exams/:id` | Auth | Detail pemeriksaan |
+| 22 | `POST` | `/exams/` | PETUGAS | Buat pemeriksaan |
+| 23 | `PATCH` | `/exams/:id` | PETUGAS | Update pemeriksaan |
+| 24 | `POST` | `/exams/:id/files` | PETUGAS | Upload file hasil |
+| 25 | `PATCH` | `/exams/:id/files/:fileId` | PETUGAS | Replace file hasil |
+| 26 | `GET` | `/exams/:id/files/:fileId/download` | Auth | Download file hasil |
+| 27 | `DELETE` | `/exams/:id` | PETUGAS | Hapus pemeriksaan |
+| 28 | `GET` | `/audit-logs` | PETUGAS | List audit log |
+| 29 | `POST` | `/devices/token` | Auth | Simpan FCM token |
 
 ---
 
@@ -283,7 +284,7 @@ Response `429 Too Many Requests`:
 **Request Body (form-data)**:
 | Field | Tipe | Wajib | Deskripsi |
 |-------|------|-------|-----------|
-| `jadwal_pemeriksaan_at` | text | ✅ | Jadwal pemeriksaan, format: `"2025-12-31 10:00:00"` (ISO) |
+| `jadwal_pemeriksaan_at` | text | ✅ | Jadwal pemeriksaan. Mendukung format lokal (`"YYYY-MM-DD HH:mm:ss"`) atau ISO-8601 standar (misal `"2025-12-31T03:00:00Z"`). Backend otomatis menormalkan ke zona waktu Jakarta (WIB). |
 | `tanggal_antrian` | text | ✅ | Tanggal antrian, format: `"2025-12-31"` (YYYY-MM-DD) |
 | `surat_rujukan` | file | ✅ | File surat rujukan (PDF/JPEG/PNG, maks 5MB) |
 
@@ -331,7 +332,7 @@ Response `429 Too Many Requests`:
     "no_lab": "LAB-20251231-0015",
     "status": "MENUNGGU",
     "tanggal_antrian": "2025-12-31",
-    "jadwal_pemeriksaan_at": "2025-12-31T10:00:00.000Z"
+    "jadwal_pemeriksaan_at": "2025-12-31 10:00:00"
   }
 ]
 ```
@@ -517,6 +518,63 @@ Response `429 Too Many Requests`:
 
 ---
 
+### GET `/patients/:patientId/registrations` — List Pendaftaran Per Pasien 🆕
+
+**Akses**: DOKTER, PETUGAS
+
+Menampilkan daftar pendaftaran (registrasi) milik pasien tertentu dengan pagination dan filter status.
+
+**Path Parameters**:
+| Parameter | Tipe | Deskripsi |
+|-----------|------|-----------|
+| `patientId` | number | ID pasien |
+
+**Query Parameters**:
+| Parameter | Tipe | Default | Deskripsi |
+|-----------|------|---------|-----------|
+| `status` | string | - | Filter status: `MENUNGGU`, `DISETUJUI`, `DITOLAK`, `DIBATALKAN` |
+| `page` | number | 1 | Halaman (min 1) |
+| `limit` | number | 20 | Jumlah per halaman (maks 100) |
+
+**Contoh**: `GET /patients/7/registrations?status=MENUNGGU&page=1&limit=10`
+
+**Response `200 OK`**:
+```json
+{
+  "data": [
+    {
+      "id": 15,
+      "pasien_id": 7,
+      "no_antrian": 5,
+      "no_lab": "LAB-20251231-0015",
+      "status": "MENUNGGU",
+      "tanggal_antrian": "2025-12-31",
+      "jadwal_pemeriksaan_at": "2025-12-31 10:00:00"
+    }
+  ],
+  "meta": {
+    "page": 1,
+    "limit": 10,
+    "total": 3
+  }
+}
+```
+
+**Response `400 Bad Request`**:
+```json
+{ "message": "Invalid patient ID" }
+```
+```json
+{ "message": "Invalid status. Must be one of: MENUNGGU, DISETUJUI, DITOLAK, DIBATALKAN" }
+```
+
+**Response `404 Not Found`**:
+```json
+{ "message": "Patient not found" }
+```
+
+---
+
 ## 4️⃣ Modul Antrian (Queue)
 
 ### GET `/queue/today` — Antrian Hari Ini
@@ -539,7 +597,7 @@ Response `429 Too Many Requests`:
       "nama": "Budi Santoso",
       "no_antrian": 1,
       "status": "MENUNGGU",
-      "jadwal_pemeriksaan_at": "2025-12-31T10:00:00.000Z"
+      "jadwal_pemeriksaan_at": "2025-12-31 10:00:00"
     }
   ]
 }
@@ -931,7 +989,7 @@ Menghapus pemeriksaan beserta semua file terkait.
       "aksi": "CREATE",
       "changed_by_akun_id": 3,
       "detail": "Pemeriksaan created",
-      "created_at": "2025-12-31T10:00:00.000Z"
+      "created_at": "2025-12-31 10:00:00"
     }
   ],
   "meta": {
@@ -1105,7 +1163,9 @@ Semua endpoint bisa mengembalikan error berikut:
 ### Status Pendaftaran/Antrian
 | Status | Deskripsi |
 |--------|-----------|
-| `MENUNGGU` | Menunggu dipanggil |
+| `MENUNGGU` | Menunggu dipanggil / menunggu persetujuan |
+| `DISETUJUI` | Pendaftaran disetujui |
+| `DITOLAK` | Pendaftaran ditolak |
 | `DILAYANI` | Sedang dilayani |
 | `SELESAI` | Selesai dilayani |
 | `DIBATALKAN` | Dibatalkan oleh petugas |

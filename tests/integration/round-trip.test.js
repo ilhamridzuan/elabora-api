@@ -159,12 +159,12 @@ function makeRegistrationMockConn(opts) {
 
       // insertPendaftaran — capture blob metadata written to DB
       if (s.includes("INSERT INTO PENDAFTARAN") || s.includes("INSERT INTO `PENDAFTARAN`")) {
-        // params: pasien_id[0], no_antrian[1], tanggal_antrian[2], jadwal_pemeriksaan_at[3],
-        //         status[4], blob_name[5], container[6], content_type[7], size_bytes[8], sha256[9]
-        state.blobName = params[5];
-        state.sha256 = params[9];
-        state.container = params[6];
-        state.contentType = params[7];
+        // params: id[0], pasien_id[1], no_antrian[2], tanggal_antrian[3], jadwal_pemeriksaan_at[4],
+        //         status[5], blob_name[6], container[7], content_type[8], size_bytes[9], sha256[10]
+        state.blobName = params[6];
+        state.sha256 = params[10];
+        state.container = params[7];
+        state.contentType = params[8];
         return [{ insertId: state.pendaftaranId }];
       }
 
@@ -220,11 +220,11 @@ function makeExamsMockConn(opts) {
 
       // insertFile — capture blob metadata
       if (s.includes("INSERT INTO PEMERIKSAAN_FILE") || s.includes("INSERT INTO `PEMERIKSAAN_FILE`")) {
-        // params: pemeriksaan_id[0], blob_name[1], container[2], content_type[3], size_bytes[4], sha256[5], file_type[6]
-        state.blobName = params[1];
-        state.container = params[2];
-        state.contentType = params[3];
-        state.sha256 = params[5];
+        // params: id[0], pemeriksaan_id[1], blob_name[2], container[3], content_type[4], size_bytes[5], sha256[6], file_type[7]
+        state.blobName = params[2];
+        state.container = params[3];
+        state.contentType = params[4];
+        state.sha256 = params[6];
         return [{ insertId: state.fileId }];
       }
 

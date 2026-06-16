@@ -30,9 +30,9 @@ Endpoint baru untuk mengambil daftar pendaftaran (registrations) berdasarkan pat
       "no_lab": "LAB-20251231-0015",
       "status": "DISETUJUI",
       "tanggal_antrian": "2025-12-31",
-      "jadwal_pemeriksaan_at": "2025-12-31T10:00:00.000Z",
+      "jadwal_pemeriksaan_at": "2025-12-31 10:00:00",
       "file_path": "referrals/2025/12/uuid.pdf",
-      "created_at": "2025-12-30T10:00:00.000Z"
+      "created_at": "2025-12-30 10:00:00"
     }
   ],
   "meta": {

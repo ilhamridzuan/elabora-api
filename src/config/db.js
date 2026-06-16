@@ -10,5 +10,12 @@ export const db = mysql.createPool({
     connectionLimit: 10,
     ssl: {
         rejectUnauthorized: true
+    },
+    dateStrings: true,
+    typeCast: function (field, next) {
+        if (field.type === 'DATETIME' || field.type === 'TIMESTAMP') {
+            return field.string();
+        }
+        return next();
     }
 });
